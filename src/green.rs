@@ -96,6 +96,14 @@ impl<L: Language> GreenNode<L> {
     Some(self.children.as_ref()?.as_ref())
   }
 
+  pub fn child_count(&self) -> Option<usize> {
+    Some(self.children()?.len())
+  }
+
+  pub fn is_token(&self) -> bool {
+    self.children.is_none()
+  }
+
   pub fn splice_children(
     &self,
     range: impl RangeBounds<usize>,
