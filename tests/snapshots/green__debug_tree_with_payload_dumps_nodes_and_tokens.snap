@@ -1,0 +1,9 @@
+---
+source: tests/green.rs
+expression: root.dump_with_payload()
+---
+Root@0..7 "Root(base foo Pair(+ bar))"
+  Ident@0..3 "foo"
+  Pair@3..7 "Pair(+ bar)"
+    Plus@3..4 "+"
+    Ident@4..7 "bar"

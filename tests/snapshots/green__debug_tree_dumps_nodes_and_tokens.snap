@@ -1,0 +1,9 @@
+---
+source: tests/green.rs
+expression: root.dump()
+---
+Root@0..7
+  Ident@0..3
+  Pair@3..7
+    Plus@3..4
+    Ident@4..7
