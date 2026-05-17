@@ -11,12 +11,21 @@ struct Parent<L: Language> {
   index: usize,
 }
 
+/// Positioned red node data.
+///
+/// A red node wraps a green element with parent, child index, and absolute text
+/// offset information. Most users work through the [`Red`] handle.
 pub struct RedNode<L: Language> {
   green: Green<L>,
   parent: Option<Parent<L>>,
   offset: TextSize,
 }
 
+/// Positioned view over an immutable green tree.
+///
+/// Red nodes are created lazily from green children. They provide navigation
+/// APIs over parent/child/sibling relationships, offsets, token order, and
+/// subtree replacement.
 pub struct Red<L: Language>(Arc<RedNode<L>>);
 
 impl<L: Language> Clone for Red<L> {
@@ -25,12 +34,20 @@ impl<L: Language> Clone for Red<L> {
   }
 }
 
+/// Result of an offset query.
+///
+/// A text offset can point inside a single element, or sit exactly between two
+/// adjacent elements. `Between(left, right)` preserves both choices so callers
+/// can choose a bias explicitly.
 pub enum AtOffset<T> {
+  /// The offset resolves to one element.
   Single(T),
+  /// The offset is on a boundary between the left and right elements.
   Between(T, T),
 }
 
 impl<T> AtOffset<T> {
+  /// Borrows the contained value or values.
   pub fn as_ref(&self) -> AtOffset<&T> {
     match self {
       Self::Single(node) => AtOffset::Single(node),
@@ -38,10 +55,12 @@ impl<T> AtOffset<T> {
     }
   }
 
+  /// Returns whether this value is [`AtOffset::Between`].
   pub fn is_between(&self) -> bool {
     matches!(self, Self::Between(_, _))
   }
 
+  /// Maps the contained value or values.
   pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> AtOffset<U> {
     match self {
       Self::Single(node) => AtOffset::Single(f(node)),
@@ -49,12 +68,14 @@ impl<T> AtOffset<T> {
     }
   }
 
+  /// Returns the single value, or the left value for a boundary.
   pub fn left_biased(self) -> T {
     match self {
       Self::Single(node) | Self::Between(node, _) => node,
     }
   }
 
+  /// Returns the single value, or the right value for a boundary.
   pub fn right_biased(self) -> T {
     match self {
       Self::Single(node) | Self::Between(_, node) => node,
@@ -62,6 +83,7 @@ impl<T> AtOffset<T> {
   }
 }
 
+/// Iterator produced by [`AtOffset`]'s `IntoIterator` implementation.
 pub struct AtOffsetIter<T> {
   first: Option<T>,
   second: Option<T>,
@@ -93,11 +115,15 @@ impl<T> IntoIterator for AtOffset<T> {
   }
 }
 
+/// Preorder walk event.
 pub enum WalkEvent<T> {
+  /// Emitted before visiting children.
   Enter(T),
+  /// Emitted after visiting children.
   Leave(T),
 }
 
+/// Lazy iterator over child metadata before red nodes are materialized.
 pub struct LazyChildren<L: Language> {
   parent: Red<L>,
   front_index: usize,
@@ -106,6 +132,7 @@ pub struct LazyChildren<L: Language> {
   back_offset: TextSize,
 }
 
+/// Lazy child entry with green data, child index, and absolute offset.
 pub struct LazyChild<L: Language> {
   parent: Red<L>,
   index: usize,
@@ -114,10 +141,12 @@ pub struct LazyChild<L: Language> {
 }
 
 impl<L: Language> LazyChild<L> {
+  /// Returns this child's absolute text range.
   pub fn range(&self) -> TextRange {
     TextRange::at(self.offset, self.green.width())
   }
 
+  /// Materializes this lazy child as a red node.
   pub fn into_red(self) -> Red<L> {
     Red::with_parent(self.green, self.parent, self.index, self.offset)
   }
@@ -132,6 +161,8 @@ impl<L: Language> Iterator for LazyChildren<L> {
       return None;
     }
 
+    // The iterator carries offsets from both ends so `next` and `next_back`
+    // can materialize children without scanning from the start each time.
     let green = parent.green.children()?.get(self.front_index)?.clone();
     let offset = self.front_offset;
     let index = self.front_index;
@@ -156,6 +187,8 @@ impl<L: Language> DoubleEndedIterator for LazyChildren<L> {
     }
 
     self.back_index -= 1;
+    // Walking from the back subtracts the selected child's width first; the
+    // resulting offset is the child's start.
     let green = parent.green.children()?.get(self.back_index)?.clone();
     self.back_offset -= green.width();
 
@@ -168,6 +201,9 @@ impl<L: Language> DoubleEndedIterator for LazyChildren<L> {
   }
 }
 
+/// Iterator over materialized red children.
+///
+/// Tokens have no children, so their `Children` iterator is empty.
 pub struct Children<L: Language>(LazyChildren<L>);
 
 impl<L: Language> Iterator for Children<L> {
@@ -184,6 +220,7 @@ impl<L: Language> DoubleEndedIterator for Children<L> {
   }
 }
 
+/// Iterator over [`WalkEvent`]s in preorder.
 pub struct Preorder<L: Language> {
   stack: Vec<WalkEvent<Red<L>>>,
 }
@@ -206,6 +243,7 @@ impl<L: Language> Iterator for Preorder<L> {
   }
 }
 
+/// Iterator over red descendants in preorder, including the starting node.
 pub struct Descendants<L: Language> {
   preorder: Preorder<L>,
 }
@@ -224,6 +262,7 @@ impl<L: Language> Iterator for Descendants<L> {
 }
 
 impl<L: Language> Red<L> {
+  /// Creates a red root view at offset 0.
   pub fn new_root(green: Green<L>) -> Self {
     Self(Arc::new(RedNode {
       green,
@@ -248,30 +287,37 @@ impl<L: Language> Red<L> {
     }))
   }
 
+  /// Returns the underlying green element.
   pub fn green(&self) -> &Green<L> {
     &self.green
   }
 
+  /// Returns this element's syntax kind.
   pub fn kind(&self) -> L::Kind {
     self.green.kind()
   }
 
+  /// Returns this red node's absolute start offset.
   pub fn offset(&self) -> TextSize {
     self.offset
   }
 
+  /// Returns this element's text width.
   pub fn width(&self) -> TextSize {
     self.green.width()
   }
 
+  /// Returns this red node's absolute text range.
   pub fn range(&self) -> TextRange {
     TextRange::at(self.offset, self.width())
   }
 
+  /// Returns this element's payload.
   pub fn payload(&self) -> &L::Payload {
     self.green.payload()
   }
 
+  /// Returns whether this element is a token.
   pub fn is_token(&self) -> bool {
     self.green.is_token()
   }
@@ -289,42 +335,57 @@ impl<L: Language> Red<L> {
     }
   }
 
+  /// Returns an iterator over this node's red children.
+  ///
+  /// Tokens return an empty iterator instead of `None`.
   pub fn children(&self) -> Children<L> {
     Children(self.lazy_children())
   }
 
+  /// Walks this subtree in preorder, emitting enter and leave events.
   pub fn preorder(&self) -> Preorder<L> {
     Preorder {
       stack: vec![WalkEvent::Enter(self.clone())],
     }
   }
 
+  /// Returns descendants in preorder, including `self`.
   pub fn descendants(&self) -> Descendants<L> {
     Descendants {
       preorder: self.preorder(),
     }
   }
 
+  /// Returns all tokens under this node in source order.
   pub fn tokens(&self) -> impl Iterator<Item = Self> {
     self.descendants().filter(|node| node.is_token())
   }
 
+  /// Returns the number of children, or `None` for tokens.
   pub fn child_count(&self) -> Option<usize> {
     self.green.child_count()
   }
 
+  /// Returns the child at `index`.
   pub fn child(&self, index: usize) -> Option<Self> {
     self.lazy_children().nth(index).map(LazyChild::into_red)
   }
 
+  /// Returns the first child.
   pub fn first_child(&self) -> Option<Self> {
     self.children().next()
   }
 
+  /// Returns the last child.
   pub fn last_child(&self) -> Option<Self> {
     self.children().next_back()
   }
 
+  /// Finds the direct child at an absolute offset.
+  ///
+  /// If the offset is exactly between two children, returns
+  /// [`AtOffset::Between`]. The offset must be inside this node's inclusive
+  /// range.
   pub fn child_at_offset(&self, offset: TextSize) -> Option<AtOffset<Self>> {
     if !self.range().contains_inclusive(offset) {
       return None;
@@ -354,6 +415,9 @@ impl<L: Language> Red<L> {
     left.map(AtOffset::Single)
   }
 
+  /// Returns the first token in this subtree.
+  ///
+  /// If called on a token, returns `self`.
   pub fn first_token(&self) -> Self {
     let mut node = self.clone();
     while let Some(child) = node.first_child() {
@@ -362,6 +426,9 @@ impl<L: Language> Red<L> {
     node
   }
 
+  /// Returns the last token in this subtree.
+  ///
+  /// If called on a token, returns `self`.
   pub fn last_token(&self) -> Self {
     let mut node = self.clone();
     while let Some(child) = node.last_child() {
@@ -370,6 +437,9 @@ impl<L: Language> Red<L> {
     node
   }
 
+  /// Finds the token at an absolute offset.
+  ///
+  /// Boundary offsets return [`AtOffset::Between`] with the token on each side.
   pub fn token_at_offset(&self, offset: TextSize) -> Option<AtOffset<Self>> {
     if !self.range().contains_inclusive(offset) {
       return None;
@@ -387,18 +457,24 @@ impl<L: Language> Red<L> {
     })
   }
 
+  /// Iterates from this node to the root, including both endpoints.
   pub fn ancestors(&self) -> impl Iterator<Item = Self> {
     iter::successors(Some(self.clone()), |node| node.parent())
   }
 
+  /// Returns this red tree's root node.
   pub fn root(&self) -> Self {
     self.ancestors().last().unwrap()
   }
 
+  /// Returns this red tree's root green element.
   pub fn root_green(&self) -> Green<L> {
     self.root().green.clone()
   }
 
+  /// Returns the smallest node that fully covers `range`.
+  ///
+  /// Returns `None` when `range` is outside this node.
   pub fn covering_node(&self, range: TextRange) -> Option<Self> {
     if !self.range().contains_range(range) {
       return None;
@@ -419,26 +495,31 @@ impl<L: Language> Red<L> {
     Some(self.clone())
   }
 
+  /// Returns this node's parent.
   pub fn parent(&self) -> Option<Self> {
     self.parent.as_ref().map(|p| p.node.clone())
   }
 
+  /// Returns this node's index in its parent.
   pub fn index(&self) -> Option<usize> {
     self.parent.as_ref().map(|p| p.index)
   }
 
+  /// Returns the previous sibling.
   pub fn prev_sibling(&self) -> Option<Self> {
     let parent = self.parent()?;
     let index = self.index()?;
     index.checked_sub(1).and_then(|index| parent.child(index))
   }
 
+  /// Returns the next sibling.
   pub fn next_sibling(&self) -> Option<Self> {
     let parent = self.parent()?;
     let index = self.index()?;
     parent.child(index + 1)
   }
 
+  /// Returns the previous token in source order.
   pub fn prev_token(&self) -> Option<Self> {
     if let Some(sibling) = self.prev_sibling() {
       return Some(sibling.last_token());
@@ -447,6 +528,7 @@ impl<L: Language> Red<L> {
     self.parent()?.prev_token()
   }
 
+  /// Returns the next token in source order.
   pub fn next_token(&self) -> Option<Self> {
     if let Some(sibling) = self.next_sibling() {
       return Some(sibling.first_token());
@@ -455,10 +537,16 @@ impl<L: Language> Red<L> {
     self.parent()?.next_token()
   }
 
+  /// Returns this node's siblings, including itself.
+  ///
+  /// Returns `None` for the root because it has no parent.
   pub fn siblings(&self) -> Option<Children<L>> {
     Some(self.parent()?.children())
   }
 
+  /// Replaces this subtree and rebuilds a new green root.
+  ///
+  /// Calling this on the root returns `replacement`.
   pub fn replace_with(&self, replacement: Green<L>) -> Green<L> {
     let Some(Parent { node, index }) = &self.parent else {
       return replacement;
@@ -470,6 +558,9 @@ impl<L: Language> Red<L> {
     node.replace_with(replaced_parent)
   }
 
+  /// Splices this node's children and rebuilds a new green root.
+  ///
+  /// Returns `None` when this node is a token or the range is invalid.
   pub fn splice_children(
     &self,
     range: impl RangeBounds<usize>,
@@ -479,6 +570,7 @@ impl<L: Language> Red<L> {
     Some(self.replace_with(spliced))
   }
 
+  /// Replaces one child and rebuilds a new green root.
   pub fn replace_child(
     &self,
     index: usize,
@@ -488,6 +580,7 @@ impl<L: Language> Red<L> {
     Some(self.replace_with(replaced))
   }
 
+  /// Inserts one child and rebuilds a new green root.
   pub fn insert_child(
     &self,
     index: usize,
@@ -497,11 +590,15 @@ impl<L: Language> Red<L> {
     Some(self.replace_with(inserted))
   }
 
+  /// Removes one child and rebuilds a new green root.
   pub fn remove_child(&self, index: usize) -> Option<Green<L>> {
     let removed = self.green.remove_child(index)?;
     Some(self.replace_with(removed))
   }
 
+  /// Removes this node from its parent and rebuilds a new green root.
+  ///
+  /// Returns `None` for the root.
   pub fn remove_self(&self) -> Option<Green<L>> {
     let Some(Parent { node, index }) = &self.parent else {
       return None;
@@ -509,6 +606,7 @@ impl<L: Language> Red<L> {
     node.remove_child(*index)
   }
 
+  /// Returns whether this node is the root red node.
   pub fn is_root(&self) -> bool {
     self.parent.is_none()
   }
