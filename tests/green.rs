@@ -11,7 +11,7 @@ fn builder_constructs_single_root_tree() {
   assert_eq!(root.kind(), Kind::Root);
   assert!(!root.is_token());
   assert_eq!(root.width(), TextSize::new(7));
-  assert_eq!(root.payload(), "Root(base foo Pair(+ bar))");
+  assert_eq!(root.payload(), "Root(foo Pair(+ bar))");
   assert_eq!(root.child_count(), Some(2));
   assert_eq!(root.children().unwrap().len(), 2);
 }
@@ -32,7 +32,7 @@ fn builder_reports_finish_errors() {
   ));
 
   let mut builder = Builder::<TestLang>::new();
-  builder.start_node(Kind::Root, None);
+  builder.start_node(Kind::Root);
 
   assert!(matches!(builder.finish(), Err(BuildError::UnclosedNode)));
 }

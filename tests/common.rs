@@ -15,16 +15,11 @@ impl Language for TestLang {
   type Kind = Kind;
   type Payload = String;
 
-  fn compose_node<'a>(
-    kind: Self::Kind,
-    base: Option<Self::Payload>,
-    children: impl IntoIterator<Item = &'a Self::Payload>,
-  ) -> Self::Payload {
-    let mut parts = Vec::new();
-    if let Some(base) = base {
-      parts.push(base);
-    }
-    parts.extend(children.into_iter().cloned());
+  fn compose_node(kind: Self::Kind, children: &[Green<Self>]) -> Self::Payload {
+    let parts: Vec<_> = children
+      .iter()
+      .map(|child| child.payload().clone())
+      .collect();
 
     format!("{kind:?}({})", parts.join(" "))
   }
@@ -36,9 +31,9 @@ pub fn token(kind: Kind, width: u32, payload: &str) -> Green<TestLang> {
 
 pub fn sample_tree() -> Green<TestLang> {
   let mut builder = Builder::<TestLang>::new();
-  builder.start_node(Kind::Root, Some("base".to_string()));
+  builder.start_node(Kind::Root);
   builder.token(Kind::Ident, TextSize::new(3), "foo".to_string());
-  builder.start_node(Kind::Pair, None);
+  builder.start_node(Kind::Pair);
   builder.token(Kind::Plus, TextSize::new(1), "+".to_string());
   builder.token(Kind::Ident, TextSize::new(3), "bar".to_string());
   builder.finish_node().unwrap();

@@ -1,10 +1,8 @@
-pub trait Language {
+use crate::green::Green;
+
+pub trait Language: Sized {
   type Kind: Clone + Copy + 'static;
   type Payload: Clone + 'static;
 
-  fn compose_node<'a>(
-    kind: Self::Kind,
-    base: Option<Self::Payload>,
-    children: impl IntoIterator<Item = &'a Self::Payload>,
-  ) -> Self::Payload;
+  fn compose_node(kind: Self::Kind, children: &[Green<Self>]) -> Self::Payload;
 }

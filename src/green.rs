@@ -118,8 +118,7 @@ impl<L: Language> GreenNode<L> {
     }
 
     let kind = self.kind;
-    let payload =
-      L::compose_node(kind, None, children.iter().map(|child| &child.payload));
+    let payload = L::compose_node(kind, &children);
 
     let node = GreenNode {
       kind,
@@ -190,7 +189,6 @@ impl<L: Language> Green<L> {
 
   pub fn node(
     kind: L::Kind,
-    base: Option<L::Payload>,
     children: impl IntoIterator<Item = Green<L>>,
   ) -> Self {
     let children: Vec<_> = children.into_iter().collect();
@@ -200,8 +198,7 @@ impl<L: Language> Green<L> {
       width += child.width;
     }
 
-    let payload =
-      L::compose_node(kind, base, children.iter().map(|child| &child.payload));
+    let payload = L::compose_node(kind, &children);
 
     Self::new(GreenNode {
       kind,

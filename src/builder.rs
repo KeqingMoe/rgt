@@ -15,7 +15,6 @@ pub struct Builder<L: Language> {
 
 struct Frame<L: Language> {
   kind: L::Kind,
-  base: Option<L::Payload>,
   children: Vec<Green<L>>,
 }
 
@@ -27,10 +26,9 @@ impl<L: Language> Builder<L> {
     }
   }
 
-  pub fn start_node(&mut self, kind: L::Kind, base: Option<L::Payload>) {
+  pub fn start_node(&mut self, kind: L::Kind) {
     self.stack.push(Frame {
       kind,
-      base,
       children: Vec::new(),
     });
   }
@@ -44,11 +42,8 @@ impl<L: Language> Builder<L> {
       return Err(BuildError::NoOpenNode)?;
     };
 
-    self.push_element(Green::node(
-      frame.kind,
-      frame.base,
-      frame.children.into_boxed_slice(),
-    ));
+    self
+      .push_element(Green::node(frame.kind, frame.children.into_boxed_slice()));
 
     Ok(())
   }

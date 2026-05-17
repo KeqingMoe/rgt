@@ -21,7 +21,7 @@ fn red_root_exposes_green_position_and_payload() {
   assert_eq!(root.offset(), TextSize::new(0));
   assert_eq!(root.width(), TextSize::new(7));
   assert_eq!(root.range(), TextRange::new(0.into(), 7.into()));
-  assert_eq!(root.payload(), "Root(base foo Pair(+ bar))");
+  assert_eq!(root.payload(), "Root(foo Pair(+ bar))");
   assert_eq!(root.child_count(), Some(2));
   assert_eq!(root.root_green().payload(), root.green().payload());
 }
@@ -280,8 +280,7 @@ fn sibling_navigation_uses_parent_indices() {
 fn red_replace_with_rebuilds_to_root() {
   let root = root();
   let pair = root.child(1).unwrap();
-  let new_pair =
-    Green::node(Kind::Pair, None, [token(Kind::Ident, 5, "hello")]);
+  let new_pair = Green::node(Kind::Pair, [token(Kind::Ident, 5, "hello")]);
 
   let new_root = pair.replace_with(new_pair);
   assert_eq!(new_root.payload(), "Root(foo Pair(hello))");
