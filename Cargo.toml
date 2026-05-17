@@ -2,6 +2,12 @@
 name = "rgt"
 version = "0.1.0"
 edition = "2024"
+description = "A small immutable red/green syntax tree library with user-defined payloads"
+license = "MIT"
+repository = "https://github.com/KeqingMoe/rgt"
+readme = "README.md"
+keywords = ["syntax-tree", "red-green", "parser", "diagnostics"]
+categories = ["parser-implementations", "data-structures"]
 
 [dependencies]
 text-size = "1.1.1"
