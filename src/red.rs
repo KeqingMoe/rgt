@@ -496,19 +496,60 @@ impl<L: Language> Red<L> {
       return None;
     }
 
+    if range.is_empty() {
+      return Some(self.covering_empty_range(range.start()));
+    }
+
+    Some(self.covering_nonempty_range(range))
+  }
+
+  fn covering_nonempty_range(&self, range: TextRange) -> Self {
     for child in self.lazy_children() {
       let r = child.range();
       if let Some(inter) = r.intersect(range)
         && !inter.is_empty()
       {
         if inter == range {
-          return child.into_red().covering_node(range);
+          return child.into_red().covering_nonempty_range(range);
         }
         break;
       }
     }
 
-    Some(self.clone())
+    self.clone()
+  }
+
+  fn covering_empty_range(&self, offset: TextSize) -> Self {
+    let mut left = None;
+
+    for child in self.lazy_children() {
+      let r = child.range();
+
+      if r.is_empty() {
+        continue;
+      }
+
+      if r.start() == offset {
+        if left.is_some() {
+          return self.clone();
+        }
+
+        return child.into_red().covering_empty_range(offset);
+      }
+
+      if r.contains(offset) {
+        return child.into_red().covering_empty_range(offset);
+      }
+
+      if r.end() == offset {
+        left = Some(child);
+      }
+    }
+
+    match left {
+      Some(child) => child.into_red().covering_empty_range(offset),
+      None => self.clone(),
+    }
   }
 
   /// Returns this node's parent.
