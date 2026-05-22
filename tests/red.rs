@@ -302,3 +302,74 @@ fn red_child_edits_rebuild_to_root() {
   assert_eq!(removed.payload(), "Root(foo)");
   assert_eq!(removed.width(), TextSize::new(3));
 }
+
+#[test]
+fn covering_empty_range_inside_token_returns_token() {
+  let root = root();
+
+  let node = root
+    .covering_node(TextRange::new(5.into(), 5.into()))
+    .unwrap();
+
+  assert_eq!(node.kind(), Kind::Ident);
+  assert_eq!(node.range(), TextRange::new(4.into(), 7.into()));
+}
+
+#[test]
+fn covering_empty_range_between_root_children_returns_root() {
+  let root = root();
+
+  let node = root
+    .covering_node(TextRange::new(3.into(), 3.into()))
+    .unwrap();
+
+  assert_eq!(node.kind(), Kind::Root);
+  assert_eq!(node.range(), TextRange::new(0.into(), 7.into()));
+}
+
+#[test]
+fn covering_empty_range_between_nested_children_returns_parent() {
+  let root = root();
+
+  let node = root
+    .covering_node(TextRange::new(4.into(), 4.into()))
+    .unwrap();
+
+  assert_eq!(node.kind(), Kind::Pair);
+  assert_eq!(node.range(), TextRange::new(3.into(), 7.into()));
+}
+
+#[test]
+fn covering_empty_range_at_tree_start_returns_first_token() {
+  let root = root();
+
+  let node = root
+    .covering_node(TextRange::new(0.into(), 0.into()))
+    .unwrap();
+
+  assert_eq!(node.kind(), Kind::Ident);
+  assert_eq!(node.range(), TextRange::new(0.into(), 3.into()));
+}
+
+#[test]
+fn covering_empty_range_at_tree_end_returns_last_token() {
+  let root = root();
+
+  let node = root
+    .covering_node(TextRange::new(7.into(), 7.into()))
+    .unwrap();
+
+  assert_eq!(node.kind(), Kind::Ident);
+  assert_eq!(node.range(), TextRange::new(4.into(), 7.into()));
+}
+
+#[test]
+fn covering_empty_range_outside_node_returns_none() {
+  let root = root();
+
+  assert!(
+    root
+      .covering_node(TextRange::new(8.into(), 8.into()))
+      .is_none()
+  );
+}
