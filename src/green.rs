@@ -282,3 +282,9 @@ impl<L: Language> Deref for Green<L> {
     &self.0
   }
 }
+
+impl<L: Language> Debug for Green<L> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "Green@{}", Arc::as_ptr(&self.0).addr())
+  }
+}

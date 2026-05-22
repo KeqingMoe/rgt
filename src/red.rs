@@ -1,5 +1,7 @@
 use crate::{green::Green, lang::Language};
 use std::{
+  fmt::{self, Debug},
+  hash::Hash,
   iter,
   ops::{Deref, RangeBounds},
   sync::Arc,
@@ -31,6 +33,20 @@ pub struct Red<L: Language>(Arc<RedNode<L>>);
 impl<L: Language> Clone for Red<L> {
   fn clone(&self) -> Self {
     Self(self.0.clone())
+  }
+}
+
+impl<L: Language> PartialEq for Red<L> {
+  fn eq(&self, other: &Self) -> bool {
+    self.green == other.green
+  }
+}
+
+impl<L: Language> Eq for Red<L> {}
+
+impl<L: Language> Hash for Red<L> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.green.hash(state);
   }
 }
 
@@ -617,5 +633,14 @@ impl<L: Language> Deref for Red<L> {
 
   fn deref(&self) -> &Self::Target {
     &self.0
+  }
+}
+
+impl<L: Language> Debug for Red<L> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let range = self.range();
+    let start: u32 = range.start().into();
+    let end: u32 = range.end().into();
+    write!(f, "Red({start}..{end})@{}", Arc::as_ptr(&self.0).addr())
   }
 }
